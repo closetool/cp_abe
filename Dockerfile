@@ -5,27 +5,7 @@ ENV PYTHONUNBUFFERED 1
 RUN apt-get update && apt-get install -y --no-install-recommends \
                 bison \
                 flex \
-                apache2 \
-                php \
-                libapache2-mod-php \
-                php-mysql \
-                php-gd \
-                php-imap \
-                php-ldap \
-                php-mbstring \
-                php-odbc \
-                php-pear \
-                php-xml \
-                php-xmlrpc \
-                && rm -rf /var/lib/apt/lists/*
-
-RUN git clone https://github.com/USTC-DataSecurity2021/CP-ABE-CloudDataSystem /var/www/html/CP-ABE-CloudDataSystem \
-                && rm /var/www/html/index.html \
-                && cp -r /var/www/html/CP-ABE-CloudDataSystem/html/* /var/www/html \
-                && rm -rf /var/www/html/CP-ABE-CloudDataSystem \
-                && mkdir /var/www/html/users \
-                && mkdir /var/www/html/resources \
-                && chmod -R 777 /var/www/html
+        && rm -rf /var/lib/apt/lists/*
 
 ENV LIBRARY_PATH /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
@@ -44,7 +24,7 @@ RUN set -ex \
     && ln -s libpbc.so.1.0.0 libpbc.so.1
 
 # Setup virtualenv
-ENV PYTHON_LIBRARY_PATH /var/www/html
+ENV PYTHON_LIBRARY_PATH /opt/venv
 ENV PATH ${PYTHON_LIBRARY_PATH}/bin:${PATH}
 
 # Install charm
@@ -60,6 +40,4 @@ RUN set -ex \
         && make install \
         && rm -rf /usr/src/charm
 
-RUN rm /usr/bin/python && ln -s /usr/local/bin/python /usr/bin/python
-
-ENTRYPOINT python /var/www/html/sk.py kiloson kiloson admin > /sk && sleep 10000000
+ENTRYPOINT [ "sleep" , "10000000"]
