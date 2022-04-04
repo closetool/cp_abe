@@ -32,6 +32,8 @@ ENV PATH ${PYTHON_LIBRARY_PATH}/bin:${PATH}
 # /opt/venv/lib/python3.7/site-packages/Charm_crypto...x86_64.egg
 RUN set -ex \
         \
+        && mkdir /cp_abe \
+        && git clone https://github.com/closetool/cp_abe.git /cp_abe \
         && mkdir -p /usr/src/charm \
         && git clone https://github.com/JHUISI/charm.git /usr/src/charm \
         && cd /usr/src/charm \
@@ -40,4 +42,6 @@ RUN set -ex \
         && make install \
         && rm -rf /usr/src/charm
 
-ENTRYPOINT [ "sleep" , "10000000"]
+WORKDIR /cp_abe
+
+ENTRYPOINT python -m pip install flask && python -m flask run -h 0
