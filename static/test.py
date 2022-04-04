@@ -20,10 +20,10 @@ def main():
 
     pk_json = dumps(pk)
     msk_json = dumps(msk)
-    with open('/var/www/html/pk.json', 'wt') as fp:
+    with open('./pk.json', 'wt') as fp:
         fp.write(pk_json)
 
-    with open('/var/www/html/msk.json', 'wt') as fp:
+    with open('./msk.json', 'wt') as fp:
         fp.write(msk_json)
 
 

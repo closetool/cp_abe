@@ -3,7 +3,8 @@ from crypt import methods
 import json
 import os
 import resource
-from flask import Flask, redirect, render_template, request, make_response, send_from_directory
+from flask import Flask, redirect, render_template, request, make_response, send_from_directory, abort, Response
+import mimetypes
 
 from charm.toolbox.pairinggroup import PairingGroup, GT
 from charm.schemes.abenc.abenc_bsw07 import CPabe_BSW07
@@ -13,13 +14,13 @@ import hashlib
 
 app = Flask(__name__,template_folder='static',static_folder='static',static_url_path='/static')
 
+authn_cookie_key = 'Authentication'
 user_dir = './users'
 uid_loc = './uid.txt'
 resources_dir = "./resources"
 
 pk_loc = './pk.json'
 msk_loc = './msk.json'
-tmp_key_atrr_loc = "./tmp_key_attr/key_attr.txt"
 
 def check_dirs_exists(dirs):
     for dir in dirs:
@@ -35,13 +36,30 @@ def check_file_exists(files):
 check_dirs_exists([user_dir,resources_dir])
 check_file_exists([uid_loc,pk_loc,msk_loc])
 
+def authen(authn_cookie):
+    try:
+        authn_user = json.loads(authn_cookie)
+        user = {}
+        with open(os.path.join(user_dir, authn_user["username"]),'r') as f:
+            user = json.loads(f.readline())
+        if authn_user["password"] != hashlib.md5(user["password"].encode(encoding='UTF-8')).hexdigest():
+            return False, {}
+    except:
+        return False
+    return True, user
+
 
 @app.route("/")
-def home():
-    return render_template('index.html')
+def home2():
+    return redirect('/index.html')
 
 @app.route("/index.html")
-def home2():
+def home():
+    authn_cookie = request.cookies.get(authn_cookie_key)
+
+    if not authen(authn_cookie):
+        return redirect('/login.html')
+
     return render_template('index.html')
 
 @app.route("/login.html")
@@ -79,6 +97,16 @@ def attr_api():
     wp.close()
 
     (sk,pk) = do_sk(attr)
+    
+    user = ""
+    with open(os.path.join(user_dir,username),"r") as f:
+        user = f.readline()
+    user = json.loads(user)
+    user["sk"] = json.loads(sk)
+    user["pk"] = json.loads(pk)
+    user["id"] = re_id
+    with open(os.path.join(user_dir,username),"w") as f:
+        f.writelines(json.dumps(user))
 
     return {"result":"success","sk":sk,"pk":pk,"id":re_id}
     
@@ -127,7 +155,9 @@ def login_api():
         with open(target,'r') as f:
             res = json.loads(f.readline())
             if res.get("password")== password:
-                return {"result":"success"}
+                resp = make_response({"result":"success"})
+                resp.set_cookie(authn_cookie_key, json.dumps({"username": username,"password":hashlib.md5(password.encode(encoding='UTF-8')).hexdigest()}),max_age=3600)
+                return resp
     else:
         return {"result":"failed","reason":"user has not been registered"}
 
@@ -159,9 +189,6 @@ def upload_api():
     attr = request.form.get(key_attr)
     if attr == "":
         return "<script>alert('Error: attr error')</script>"
-    else:
-        with open(tmp_key_atrr_loc,'w') as f:
-            f.writelines(attr)
     
     # check if the post request has the file part
     if 'uploadfile' not in request.files:
@@ -231,5 +258,58 @@ def encrypt(filepath, cfilepath, attr):
 def download_api(name):
     if name == '' :
         return {'result':'failed','reason':'file name is empty'} 
-    directory = os.path.join(resources_dir,name)
-    return send_from_directory(directory, key_cfile, as_attachment=True)
+
+    authn_cookie = request.cookies.get(authn_cookie_key)
+    res = authen(authn_cookie)
+    if not res:
+        return redirect('/login.html')
+    user = res[1]
+    target = os.path.join(resources_dir,name)
+    suffix = ""
+    with open(os.path.join(target,key_suffix),"r") as f:
+        suffix = f.readline() 
+    cfile = ""
+    with open(os.path.join(target,key_cfile),"r") as f:
+        cfile = f.readline()
+
+    data = ""
+    try:
+        data = decrypto(cfile,user["pk"],user["sk"])
+    except:
+        abort(403)
+    resp = Response(data)
+    filename = name+"."+suffix
+    resp.headers['Content-Type'] = mimetypes.guess_type(filename)
+    resp.headers['Content-Disposition'] = 'attachment; filename={}'.format(filename.encode().decode('latin-1'))
+    return resp
+
+def decrypto(cfile,pk,sk):
+    cipher = json.loads(cfile)
+
+    group = PairingGroup('SS512')
+    cp_abe = CPabe_BSW07(group)
+    hyb_abe = HybridABEnc(cp_abe, group)
+
+    cipher["c1"]["C"] = group.deserialize(cipher["c1"]["C"].encode('utf-8'))
+    for key in cipher["c1"]["Cy"]:
+        cipher["c1"]["Cy"][key] = group.deserialize(cipher["c1"]["Cy"][key].encode('utf-8'))
+    cipher["c1"]["C_tilde"] = group.deserialize(cipher["c1"]["C_tilde"].encode('utf-8'))
+    for key in cipher["c1"]["Cyp"]:
+        cipher["c1"]["Cyp"][key] = group.deserialize(cipher["c1"]["Cyp"][key].encode('utf-8'))
+
+    re_pk = pk
+    re_pk['g'] = group.deserialize(re_pk['g'].encode('utf-8'))
+    re_pk['g2'] = group.deserialize(re_pk['g2'].encode('utf-8'))
+    re_pk['h'] = group.deserialize(re_pk['h'].encode('utf-8'))
+    re_pk['f'] = group.deserialize(re_pk['f'].encode('utf-8'))
+    re_pk['e_gg_alpha'] = group.deserialize(re_pk['e_gg_alpha'].encode('utf-8'))
+
+    sk['D'] = group.deserialize(sk['D'].encode('utf-8'))
+    for i in sk['Dj']:
+        sk['Dj'][i] = group.deserialize(sk['Dj'][i].encode('utf-8'))
+
+    for j in sk['Djp']:
+        sk['Djp'][j] = group.deserialize(sk['Djp'][j].encode('utf-8'))
+
+    msg = hyb_abe.decrypt(re_pk, sk, cipher)
+    return msg.decode('utf-8')
