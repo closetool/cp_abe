@@ -2,6 +2,9 @@ import base64
 from crypt import methods
 import json
 import os
+import shutil
+import sys
+import hashlib
 import resource
 from flask import Flask, redirect, render_template, request, make_response, send_from_directory, abort, Response
 import mimetypes
@@ -9,8 +12,6 @@ import mimetypes
 from charm.toolbox.pairinggroup import PairingGroup, GT
 from charm.schemes.abenc.abenc_bsw07 import CPabe_BSW07
 from charm.adapters.abenc_adapt_hybrid import HybridABEnc
-import sys
-import hashlib
 
 app = Flask(__name__,template_folder='static',static_folder='static',static_url_path='/static')
 
@@ -313,3 +314,18 @@ def decrypto(cfile,pk,sk):
 
     msg = hyb_abe.decrypt(re_pk, sk, cipher)
     return msg.decode('utf-8')
+
+@app.route("/logout")
+def logout_api():
+    resp = make_response(redirect("/login.html"))
+    resp.delete_cookie(authn_cookie_key)
+    return resp
+
+@app.route("/delete/resources/<string:name>")
+def delete_resource_api(name):
+    name = name.split(".")[0]
+    try:
+        shutil.rmtree(os.path.join(resources_dir,name))
+    except:
+        pass
+    return redirect(location='/index.html')

@@ -106,6 +106,9 @@
 										<b>.container</b>
 									</label>
 								</div>
+								<div class="ace-settings-item">
+										<a href="/logout">logout</a>
+								</div>
 							</div><!-- /.pull-left -->
 
 						</div><!-- /.ace-settings-box -->
@@ -195,6 +198,10 @@
 											rowspan="1" colspan="1"
 											aria-label="Clicks: activate to sort column ascending">路径</th>
 
+											<th class="hidden-480 sorting" tabindex="0" aria-controls="dynamic-table"
+											rowspan="1" colspan="1"
+											aria-label="Clicks: activate to sort column ascending">操作</th>
+
 									</tr>
 								</thead>
 
@@ -211,6 +218,7 @@
 
 										<td style="display: table-cell; vertical-align: middle;" id="fattr"></td>
 										<td style="display: table-cell; vertical-align: middle;" id="fpath" class="hidden-480"  href=''>－
+										<td style="display: table-cell; vertical-align: middle;" id="faction" class="hidden-480"  href=''>－
 
 									</tr> 
 								</tbody>
@@ -345,6 +353,7 @@
 							row.find("#fname").text(item.name);
 							row.find("#fattr").text(item.attr);
 							row.find("#fpath").text("下载").wrapInner("<a href='"+item.path+"'></a>");
+							row.find("#faction").text("删除").wrapInner("<a href='/delete/resources/"+item.name+"'></a>")
 							row.attr("id","ready");
 							row.appendTo("#tbody_list");
 						})
