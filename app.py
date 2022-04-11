@@ -277,7 +277,7 @@ def download_api(name):
     try:
         data = decrypto(cfile,user["pk"],user["sk"])
     except:
-        abort(403)
+        data = cfile
     resp = Response(data)
     filename = name+"."+suffix
     resp.headers['Content-Type'] = mimetypes.guess_type(filename)
